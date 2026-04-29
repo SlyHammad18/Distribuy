@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce - Professional Digital Store</title>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <a href="/">Distribuy</a>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="#products">Products</a></li>
+                <li><a href="/cart.html">Cart</a></li>
+                <li id="auth-nav">
+                    <a href="/login.html">Login</a>
+                </li>
+                <li id="user-nav" style="display: none;">
+                    <a href="/profile.html">Profile</a>
+                    <a href="#" onclick="logout()">Logout</a>
+                </li>
+                <li id="admin-nav" style="display: none;">
+                    <a href="/admin.html">Admin Panel</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Premium Tech Products</h1>
+            <p>Discover our curated collection of high-quality electronics and accessories</p>
+            <a href="#products" class="btn btn-primary">Shop Now</a>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section id="products" class="products-section">
+        <div class="container">
+            <h2>Our Products</h2>
+            <div class="filters">
+                <input type="text" id="search-box" placeholder="Search products...">
+                <select id="category-filter">
+                    <option value="">All Categories</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Accessories">Accessories</option>
+                    <option value="Office">Office</option>
+                </select>
+            </div>
+            <div class="products-grid" id="products-container">
+                <!-- Products will be loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>About Us</h4>
+                <p>Premium e-commerce platform with distributed architecture</p>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p>Email: support@distribuy.com</p>
+                <p>Phone: +1-800-TECH</p>
+            </div>
+            <div class="footer-section">
+                <h4>Follow Us</h4>
+                <p>Social media links</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 Distribuy. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/assets/js/common.js"></script>
+    <script src="/assets/js/home.js"></script>
+</body>
+</html>

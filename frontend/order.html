@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details - Distribuy</title>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <a href="/">Distribuy</a>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/profile.html">Profile</a></li>
+                <li><a href="/cart.html">Cart</a></li>
+                <li><a href="#" onclick="logout()">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 960px; margin-top: 2rem;">
+        <h1 style="margin-bottom: 1rem;">Order Details</h1>
+        <div id="order-meta" class="form-container" style="max-width:none;"></div>
+        <div class="form-container" style="max-width:none; margin-top: 1rem;">
+            <h3>Items</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="order-items"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script>
+        async function loadOrder() {
+            const token = getToken();
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const params = new URLSearchParams(window.location.search);
+            const orderId = params.get('id');
+            if (!orderId) {
+                showAlert('Missing order id', 'error');
+                return;
+            }
+
+            try {
+                const result = await apiCall('GET', `/orders/${orderId}`);
+                const order = result.data;
+
+                document.getElementById('order-meta').innerHTML = `
+                    <p><strong>Order #:</strong> ${order.order_id}</p>
+                    <p><strong>Status:</strong> ${order.status}</p>
+                    <p><strong>Total:</strong> ${formatCurrency(order.total_price)}</p>
+                    <p><strong>Created:</strong> ${formatDate(order.created_at)}</p>
+                `;
+
+                document.getElementById('order-items').innerHTML = (order.items || []).map(item => `
+                    <tr>
+                        <td>${item.product_name}</td>
+                        <td>${item.quantity}</td>
+                        <td>${formatCurrency(item.unit_price)}</td>
+                        <td>${formatCurrency(item.subtotal)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateNav();
+            loadOrder();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Distribuy</title>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <style>
+        .admin-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .admin-note { color: #59636e; margin-bottom: 1rem; }
+        .mini-input { width: 88px; padding: 0.35rem 0.45rem; }
+
+        .replication-strip-wrap { display: grid; gap: 0.8rem; margin-top: 1rem; }
+        .replication-strip {
+            border: 1px solid #d6dde5;
+            border-radius: 12px;
+            background: #ffffff;
+            padding: 0.8rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.7rem;
+        }
+        .strip-cell { display: flex; flex-direction: column; gap: 0.28rem; min-width: 0; }
+        .strip-label { font-size: 0.72rem; font-weight: 700; color: #55606c; letter-spacing: 0.02em; text-transform: uppercase; }
+        .strip-value { font-size: 0.92rem; color: #1f2a37; word-break: break-word; }
+        .strip-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .status-chip.healthy { background: #e6f7ec; color: #1d7f43; }
+        .status-chip.unhealthy { background: #fde8e8; color: #b42318; }
+
+        .monitor-log {
+            border: 1px solid #d6dde5;
+            border-radius: 10px;
+            background: #fff;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+        .monitor-log-row {
+            border-bottom: 1px solid #eef2f7;
+            padding: 0.7rem 0.85rem;
+        }
+        .monitor-log-row:last-child { border-bottom: none; }
+        .monitor-log-meta { font-size: 0.78rem; color: #637083; }
+        .monitor-log-action { font-weight: 700; margin-top: 0.2rem; }
+        .monitor-log-details { font-family: monospace; white-space: pre-wrap; font-size: 0.78rem; color: #334155; margin-top: 0.2rem; }
+
+        .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+        @media (max-width: 950px) { .two-col { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <a href="/">Distribuy</a>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/cart.html">Cart</a></li>
+                <li><a href="/profile.html">Profile</a></li>
+                <li><a href="/admin.html" class="active">Admin Panel</a></li>
+                <li><a href="#" onclick="logout()">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>System Administration Dashboard</h1>
+            <p>Manage data, monitor node health, and control failover automation.</p>
+        </div>
+
+        <div class="admin-tabs">
+            <button class="admin-tab active" onclick="showAdminTab(event, 'dashboard')">Dashboard</button>
+            <button class="admin-tab" onclick="showAdminTab(event, 'users')">Users</button>
+            <button class="admin-tab" onclick="showAdminTab(event, 'orders')">Orders</button>
+            <button class="admin-tab" onclick="showAdminTab(event, 'inventory')">Inventory</button>
+            <button class="admin-tab" onclick="showAdminTab(event, 'replication')">Replication</button>
+            <button class="admin-tab" onclick="showAdminTab(event, 'monitor')">Monitor</button>
+        </div>
+
+        <div id="dashboard" class="admin-content active">
+            <div class="products-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                <div class="product-card"><div class="product-content"><h3>Total Users</h3><p id="total-users" style="font-size: 2rem; font-weight: 700;">-</p></div></div>
+                <div class="product-card"><div class="product-content"><h3>Total Orders</h3><p id="total-orders" style="font-size: 2rem; font-weight: 700;">-</p></div></div>
+                <div class="product-card"><div class="product-content"><h3>Total Products</h3><p id="total-products" style="font-size: 2rem; font-weight: 700;">-</p></div></div>
+                <div class="product-card"><div class="product-content"><h3>System Health</h3><p id="system-health" style="font-size: 2rem; font-weight: 700;">-</p></div></div>
+            </div>
+        </div>
+
+        <div id="users" class="admin-content">
+            <p class="admin-note">Delete non-admin users directly from this table.</p>
+            <div class="loading" id="users-loading">Loading users...</div>
+            <table id="users-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Admin</th><th>Status</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="users-tbody"></tbody>
+            </table>
+        </div>
+
+        <div id="orders" class="admin-content">
+            <p class="admin-note">Delete orders when needed (stock is restored automatically).</p>
+            <div class="loading" id="orders-loading">Loading orders...</div>
+            <table id="admin-orders-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Order ID</th><th>User ID</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-tbody"></tbody>
+            </table>
+        </div>
+
+        <div id="inventory" class="admin-content">
+            <div class="two-col">
+                <div>
+                    <p class="admin-note">Inline update stock/reorder settings and save row by row.</p>
+                    <div class="loading" id="inventory-loading">Loading inventory...</div>
+                    <table id="inventory-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Product ID</th><th>Name</th><th>Stock</th><th>Reserved</th><th>Reorder</th><th>Location</th><th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="form-container" style="max-width: none;">
+                    <h3>Add New Product</h3>
+                    <div class="form-group"><label>Name</label><input id="p-name" type="text"></div>
+                    <div class="form-group"><label>Description</label><textarea id="p-description"></textarea></div>
+                    <div class="form-group"><label>Category</label><input id="p-category" type="text" placeholder="electronics"></div>
+                    <div class="form-group"><label>Brand</label><input id="p-brand" type="text"></div>
+                    <div class="form-group"><label>Price</label><input id="p-price" type="number" step="0.01"></div>
+                    <div class="form-group"><label>Product ID / Stock Ref</label><input id="p-stock-ref" type="number"></div>
+                    <div class="form-group"><label>Initial Stock</label><input id="p-initial-stock" type="number" value="0"></div>
+                    <div class="form-group"><label>Reorder Level</label><input id="p-reorder" type="number" value="10"></div>
+                    <div class="form-group"><label>Warehouse Location</label><input id="p-location" type="text" placeholder="Shelf A1"></div>
+                    <button class="btn btn-primary" onclick="addProduct()">Add Product</button>
+                    <div id="product-add-result" style="margin-top:0.8rem;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="replication" class="admin-content">
+            <div class="admin-actions">
+                <button onclick="refreshReplicationStatus()" class="btn btn-primary">Refresh Status</button>
+            </div>
+            <div id="replication-summary"></div>
+            <div id="replication-status" class="replication-strip-wrap"></div>
+        </div>
+
+        <div id="monitor" class="admin-content">
+            <div class="form-container" style="max-width: none;">
+                <h2>Monitor Settings</h2>
+                <div class="admin-actions">
+                    <input id="monitor-interval" type="number" min="2" value="5" style="max-width:130px;">
+                    <button onclick="updateMonitorInterval()" class="btn btn-secondary">Update Check Interval</button>
+                    <button onclick="startAutoFailoverMonitor()" class="btn btn-primary">Start Monitor</button>
+                    <button onclick="stopAutoFailoverMonitor()" class="btn btn-secondary">Stop Monitor</button>
+                    <button onclick="refreshMonitorStatus()" class="btn btn-secondary">Refresh Log</button>
+                    <button onclick="resetEnvironment()" class="btn btn-danger">Reset To Normal</button>
+                </div>
+                <div id="monitor-status" style="margin-bottom:0.9rem;"></div>
+                <h3>Database Action Log</h3>
+                <div id="monitor-log" class="monitor-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script>
+        let monitorLogTimer = null;
+
+        function showAdminTab(evt, tabName) {
+            document.querySelectorAll('.admin-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            if (evt && evt.target) evt.target.classList.add('active');
+
+            if (tabName === 'dashboard') loadDashboard();
+            if (tabName === 'users') loadUsers();
+            if (tabName === 'orders') loadOrders();
+            if (tabName === 'inventory') loadInventory();
+            if (tabName === 'replication') refreshReplicationStatus();
+            if (tabName === 'monitor') {
+                loadMonitor();
+                startMonitorLogPolling();
+            } else {
+                stopMonitorLogPolling();
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function badge(status) {
+            return status === 'healthy'
+                ? '<span class="status-chip healthy">Healthy</span>'
+                : '<span class="status-chip unhealthy">Down</span>';
+        }
+
+        function readWriteLabel(node, activeEndpoints) {
+            if (node.status !== 'healthy') return '-';
+            if (node.service === 'mongodb') {
+                const role = String(node.role || '').toLowerCase();
+                return role.includes('primary') ? 'Read/Write' : 'Read';
+            }
+            if (node.node === (activeEndpoints[node.service] || 'primary')) {
+                return 'Read/Write';
+            }
+            if (node.is_in_recovery === true || node.node === 'replica') {
+                return 'Read';
+            }
+            return 'Read/Write';
+        }
+
+        function roleLabel(node, activeEndpoints) {
+            if (node.service === 'mongodb') {
+                const active = activeEndpoints.mongodb || 'primary';
+                return node.node === active ? 'Primary (active)' : (node.node === 'secondary' ? 'Secondary' : 'Primary');
+            }
+            const activeRole = activeEndpoints[node.service] || 'primary';
+            return node.node === activeRole ? 'Primary (active)' : (node.node === 'replica' ? 'Replica' : 'Primary');
+        }
+
+        function nodeActionButtons(node) {
+            const service = node.service;
+            const nodeName = node.node;
+            const actions = [
+                `<button class="btn btn-secondary" style="padding:0.32rem 0.52rem;" onclick="actionNode('${service}','${nodeName}','fail')">Fail</button>`,
+                `<button class="btn btn-secondary" style="padding:0.32rem 0.52rem;" onclick="actionNode('${service}','${nodeName}','start')">Start</button>`
+            ];
+            const promotable = (service !== 'mongodb' && nodeName === 'replica') || (service === 'mongodb' && nodeName === 'secondary');
+            if (promotable) {
+                actions.push(`<button class="btn btn-primary" style="padding:0.32rem 0.52rem;" onclick="actionNode('${service}','${nodeName}','promote')">Promote</button>`);
+            }
+            return `<div class="strip-actions">${actions.join('')}</div>`;
+        }
+
+        async function loadDashboard() {
+            try {
+                const result = await apiCall('GET', '/admin/status');
+                if (result.status === 'success') {
+                    document.getElementById('total-users').textContent = result.data.services.active_users;
+                    document.getElementById('total-orders').textContent = result.data.services.total_orders;
+                    document.getElementById('total-products').textContent = result.data.services.total_products;
+                    document.getElementById('system-health').textContent = result.data.services.degraded ? 'DEGRADED' : 'OK';
+                }
+            } catch (error) {
+                document.getElementById('system-health').textContent = 'DEGRADED';
+                document.getElementById('total-users').textContent = '-';
+                document.getElementById('total-orders').textContent = '-';
+                document.getElementById('total-products').textContent = '-';
+            }
+        }
+
+        async function loadUsers() {
+            const tbody = document.getElementById('users-tbody');
+            const table = document.getElementById('users-table');
+            const loading = document.getElementById('users-loading');
+            try {
+                const result = await apiCall('GET', '/users?limit=100');
+                loading.style.display = 'none';
+                table.style.display = 'table';
+                tbody.innerHTML = (result.data.users || []).map(user => `
+                    <tr>
+                        <td>${user.user_id}</td>
+                        <td>${escapeHtml(user.name)}</td>
+                        <td>${escapeHtml(user.email)}</td>
+                        <td>${escapeHtml(user.phone || '-')}</td>
+                        <td>${user.is_admin ? 'Yes' : 'No'}</td>
+                        <td>${user.is_active ? 'Active' : 'Inactive'}</td>
+                        <td>
+                            ${user.is_admin ? '<span style="color:#64748b;">Protected</span>' : `<button class="btn btn-danger" style="padding:0.3rem 0.55rem;" onclick="deleteUser(${user.user_id})">Delete</button>`}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                table.style.display = 'none';
+                loading.style.display = 'block';
+                loading.textContent = 'Users service is unavailable right now.';
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm(`Delete user ${userId}?`)) return;
+            try {
+                await apiCall('DELETE', `/users/${userId}`);
+                showAlert('User deleted', 'success');
+                await loadUsers();
+                await loadDashboard();
+                await refreshMonitorStatus();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function loadOrders() {
+            const tbody = document.getElementById('orders-tbody');
+            const table = document.getElementById('admin-orders-table');
+            const loading = document.getElementById('orders-loading');
+            try {
+                const result = await apiCall('GET', '/orders?limit=100');
+                loading.style.display = 'none';
+                table.style.display = 'table';
+                tbody.innerHTML = (result.data.orders || []).map(order => `
+                    <tr>
+                        <td>#${order.order_id}</td>
+                        <td>${order.user_id}</td>
+                        <td>${formatCurrency(order.total_price)}</td>
+                        <td>${escapeHtml(order.status)}</td>
+                        <td>${formatDate(order.created_at)}</td>
+                        <td><button class="btn btn-danger" style="padding:0.3rem 0.55rem;" onclick="deleteOrder(${order.order_id})">Delete</button></td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                table.style.display = 'none';
+                loading.style.display = 'block';
+                loading.textContent = 'Orders service is unavailable right now.';
+            }
+        }
+
+        async function deleteOrder(orderId) {
+            if (!confirm(`Delete order ${orderId}?`)) return;
+            try {
+                await apiCall('DELETE', `/orders/${orderId}`);
+                showAlert('Order deleted', 'success');
+                await loadOrders();
+                await loadDashboard();
+                await loadInventory();
+                await refreshMonitorStatus();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function loadInventory() {
+            const tbody = document.getElementById('inventory-tbody');
+            const table = document.getElementById('inventory-table');
+            const loading = document.getElementById('inventory-loading');
+            try {
+                const result = await apiCall('GET', '/inventory');
+                loading.style.display = 'none';
+                table.style.display = 'table';
+                tbody.innerHTML = (result.data.inventory || []).map(item => `
+                    <tr>
+                        <td>${item.product_id}</td>
+                        <td><input class="mini-input" id="inv-name-${item.product_id}" value="${escapeHtml(item.product_name || '')}"></td>
+                        <td><input class="mini-input" type="number" id="inv-stock-${item.product_id}" value="${item.stock_quantity}"></td>
+                        <td><input class="mini-input" type="number" id="inv-res-${item.product_id}" value="${item.reserved_quantity}"></td>
+                        <td><input class="mini-input" type="number" id="inv-reorder-${item.product_id}" value="${item.reorder_level}"></td>
+                        <td><input class="mini-input" id="inv-loc-${item.product_id}" value="${escapeHtml(item.warehouse_location || '')}"></td>
+                        <td><button class="btn btn-primary" style="padding:0.3rem 0.55rem;" onclick="updateInventory(${item.product_id})">Save</button></td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                table.style.display = 'none';
+                loading.style.display = 'block';
+                loading.textContent = 'Inventory service is unavailable right now.';
+            }
+        }
+
+        async function updateInventory(productId) {
+            const payload = {
+                product_name: document.getElementById(`inv-name-${productId}`).value,
+                stock_quantity: Number(document.getElementById(`inv-stock-${productId}`).value),
+                reserved_quantity: Number(document.getElementById(`inv-res-${productId}`).value),
+                reorder_level: Number(document.getElementById(`inv-reorder-${productId}`).value),
+                warehouse_location: document.getElementById(`inv-loc-${productId}`).value
+            };
+            try {
+                await apiCall('PUT', `/inventory/${productId}`, payload);
+                showAlert(`Inventory updated for product ${productId}`, 'success');
+                await loadInventory();
+                await refreshMonitorStatus();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function addProduct() {
+            const resultDiv = document.getElementById('product-add-result');
+            const payload = {
+                name: document.getElementById('p-name').value,
+                description: document.getElementById('p-description').value,
+                category: document.getElementById('p-category').value,
+                brand: document.getElementById('p-brand').value,
+                price: Number(document.getElementById('p-price').value),
+                stock_reference_id: Number(document.getElementById('p-stock-ref').value),
+                initial_stock: Number(document.getElementById('p-initial-stock').value),
+                reorder_level: Number(document.getElementById('p-reorder').value),
+                warehouse_location: document.getElementById('p-location').value
+            };
+
+            try {
+                await apiCall('POST', '/products', payload);
+                resultDiv.innerHTML = '<div class="alert alert-success">Product added successfully.</div>';
+                await loadInventory();
+                await loadDashboard();
+                await refreshMonitorStatus();
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function refreshReplicationStatus() {
+            const summaryDiv = document.getElementById('replication-summary');
+            const strips = document.getElementById('replication-status');
+            try {
+                const result = await apiCall('GET', '/health/replication');
+                const data = result.data || {};
+                const nodes = data.nodes || [];
+                const summary = data.summary || {};
+                const active = data.active_db_endpoints || {};
+
+                summaryDiv.innerHTML = `
+                    <div class="alert ${summary.overall_status === 'healthy' ? 'alert-success' : 'alert-error'}" style="margin-bottom:0.7rem;">
+                        <strong>Overall Health:</strong> ${escapeHtml(summary.overall_status || 'unknown').toUpperCase()} |
+                        Healthy Nodes: ${summary.healthy_nodes ?? 0}/${summary.total_nodes ?? 0} |
+                        Failover Active: ${summary.failover_active ? 'Yes' : 'No'}
+                    </div>
+                `;
+
+                strips.innerHTML = nodes.map(n => {
+                    const lsnOrError = n.status === 'healthy' ? (n.wal_lsn || '-') : (n.error || 'unreachable');
+                    return `
+                        <div class="replication-strip">
+                            <div class="strip-cell"><span class="strip-label">Service</span><span class="strip-value">${escapeHtml(n.service)}</span></div>
+                            <div class="strip-cell"><span class="strip-label">Node</span><span class="strip-value">${escapeHtml(n.node)}</span></div>
+                            <div class="strip-cell"><span class="strip-label">Endpoint</span><span class="strip-value">${escapeHtml(n.endpoint || '-')}</span></div>
+                            <div class="strip-cell"><span class="strip-label">Role</span><span class="strip-value">${escapeHtml(roleLabel(n, active))}</span></div>
+                            <div class="strip-cell"><span class="strip-label">Status</span><span class="strip-value">${badge(n.status)}</span></div>
+                            <div class="strip-cell"><span class="strip-label">Read/Write</span><span class="strip-value">${escapeHtml(readWriteLabel(n, active))}</span></div>
+                            <div class="strip-cell"><span class="strip-label">Latency</span><span class="strip-value">${n.latency_ms ?? '-'} ms</span></div>
+                            <div class="strip-cell"><span class="strip-label">LSN / Error</span><span class="strip-value">${escapeHtml(lsnOrError)}</span></div>
+                            <div class="strip-cell"><span class="strip-label">Actions</span><span class="strip-value">${nodeActionButtons(n)}</span></div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                summaryDiv.innerHTML = `<div class="alert alert-error">${escapeHtml(error.message)}</div>`;
+                strips.innerHTML = '';
+            }
+        }
+
+        async function actionNode(service, node, action) {
+            try {
+                let endpoint = '/admin/failover/node/fail';
+                if (action === 'start') endpoint = '/admin/failover/node/start';
+                if (action === 'promote') endpoint = '/admin/failover/node/promote';
+
+                const result = await apiCall('POST', endpoint, { service, node });
+                showAlert(result.data.message || `${action} completed`, 'success');
+                await refreshReplicationStatus();
+                await refreshMonitorStatus();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function loadMonitor() {
+            await refreshMonitorStatus();
+        }
+
+        async function refreshMonitorStatus() {
+            const statusDiv = document.getElementById('monitor-status');
+            const logDiv = document.getElementById('monitor-log');
+            try {
+                const statusResult = await apiCall('GET', '/admin/failover/monitor/status');
+                const monitor = statusResult.data.auto_failover || {};
+                if (document.getElementById('monitor-interval')) {
+                    document.getElementById('monitor-interval').value = monitor.interval_seconds ?? 5;
+                }
+
+                statusDiv.innerHTML = `
+                    <div class="alert alert-success" style="margin-bottom:0;">
+                        <strong>Status:</strong> ${monitor.enabled ? 'Running' : 'Stopped'} |
+                        <strong>Interval:</strong> ${monitor.interval_seconds ?? '-'}s |
+                        <strong>Thread:</strong> ${monitor.thread_alive ? 'Alive' : 'Stopped'} |
+                        <strong>Last Run:</strong> ${monitor.last_run ? formatDate(monitor.last_run) : '-'}
+                    </div>
+                `;
+
+                const eventsResult = await apiCall('GET', '/admin/failover/monitor/events?limit=120');
+                const events = eventsResult.data.events || [];
+                logDiv.innerHTML = events.length ? events.map(ev => `
+                    <div class="monitor-log-row">
+                        <div class="monitor-log-meta">${formatDate(ev.timestamp)} | ${escapeHtml(ev.level || 'info')} | ${escapeHtml(ev.service || '-')} | ${escapeHtml(ev.node || '-')}</div>
+                        <div class="monitor-log-action">${escapeHtml(ev.action || '-')}</div>
+                        <div class="monitor-log-details">${escapeHtml(JSON.stringify(ev.details || {}))}</div>
+                    </div>
+                `).join('') : '<div class="monitor-log-row">No events yet.</div>';
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="alert alert-error">${escapeHtml(error.message)}</div>`;
+                logDiv.innerHTML = '';
+            }
+        }
+
+        async function startAutoFailoverMonitor() {
+            const interval = Number(document.getElementById('monitor-interval').value || 5);
+            try {
+                await apiCall('POST', '/admin/failover/monitor/start', { interval_seconds: interval });
+                showAlert('Monitor started', 'success');
+                await refreshMonitorStatus();
+                await refreshReplicationStatus();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function stopAutoFailoverMonitor() {
+            try {
+                await apiCall('POST', '/admin/failover/monitor/stop', {});
+                showAlert('Monitor stopped', 'success');
+                await refreshMonitorStatus();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function updateMonitorInterval() {
+            const interval = Number(document.getElementById('monitor-interval').value || 5);
+            try {
+                await apiCall('PUT', '/admin/failover/monitor/config', { interval_seconds: interval });
+                showAlert('Monitor interval updated', 'success');
+                await refreshMonitorStatus();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        async function resetEnvironment() {
+            const sure = confirm('This will fully reset database containers and volumes. Continue?');
+            if (!sure) return;
+            try {
+                const result = await apiCall('POST', '/admin/failover/reset', {});
+                showAlert(result.data.message, 'success');
+                await refreshReplicationStatus();
+                await refreshMonitorStatus();
+                await loadDashboard();
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        function startMonitorLogPolling() {
+            stopMonitorLogPolling();
+            monitorLogTimer = setInterval(() => {
+                if (document.getElementById('monitor').classList.contains('active')) {
+                    refreshMonitorStatus();
+                }
+            }, 5000);
+        }
+
+        function stopMonitorLogPolling() {
+            if (monitorLogTimer) {
+                clearInterval(monitorLogTimer);
+                monitorLogTimer = null;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateNav();
+            const token = getToken();
+            const user = getUserInfo();
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+            if (!user || !user.is_admin) {
+                showAlert('Admin access required', 'error');
+                setTimeout(() => { window.location.href = '/'; }, 1200);
+                return;
+            }
+            loadDashboard();
+            refreshReplicationStatus();
+            loadMonitor();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - Distribuy</title>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <a href="/">Distribuy</a>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/#products">Products</a></li>
+                <li><a href="/cart.html" class="active">Cart</a></li>
+                <li id="auth-nav">
+                    <a href="/login.html">Login</a>
+                </li>
+                <li id="user-nav" style="display: none;">
+                    <a href="/profile.html">Profile</a>
+                    <a href="#" onclick="logout()">Logout</a>
+                </li>
+                <li id="admin-nav" style="display: none;">
+                    <a href="/admin.html">Admin Panel</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="cart-container">
+        <h1 style="margin-bottom: 2rem;">Shopping Cart</h1>
+        
+        <div id="cart-items">
+            <!-- Cart items will be loaded here -->
+        </div>
+
+        <div class="cart-summary">
+            <div class="cart-summary-row">
+                <span>Subtotal:</span>
+                <span id="subtotal">$0.00</span>
+            </div>
+            <div class="cart-summary-row">
+                <span>Tax (10%):</span>
+                <span id="tax">$0.00</span>
+            </div>
+            <div class="cart-summary-row cart-summary-total">
+                <span>Total:</span>
+                <span id="total">$0.00</span>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: flex-end;">
+                <a href="/" class="btn btn-secondary">Continue Shopping</a>
+                <button onclick="checkout()" class="btn btn-primary">Proceed to Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script>
+        function displayCart() {
+            const cart = new Cart();
+            const container = document.getElementById('cart-items');
+
+            if (cart.items.length === 0) {
+                container.innerHTML = '<p style="padding: 2rem; text-align: center;">Your cart is empty</p>';
+                updateTotals();
+                return;
+            }
+
+            container.innerHTML = cart.items.map(item => `
+                <div class="cart-item">
+                    <div class="cart-item-image">📦</div>
+                    <div class="cart-item-info">
+                        <h3>${item.product_name}</h3>
+                        <p>${formatCurrency(item.price)}</p>
+                    </div>
+                    <input type="number" min="1" value="${item.quantity}" 
+                        onchange="updateQuantity(${item.product_id}, this.value)">
+                    <div class="cart-item-price">${formatCurrency(item.price * item.quantity)}</div>
+                    <button onclick="removeFromCart(${item.product_id})" class="btn btn-secondary" 
+                        style="padding: 0.5rem; font-size: 0.9rem;">×</button>
+                </div>
+            `).join('');
+
+            updateTotals();
+        }
+
+        function updateQuantity(productId, quantity) {
+            const cart = new Cart();
+            cart.updateQuantity(productId, parseInt(quantity));
+            displayCart();
+        }
+
+        function removeFromCart(productId) {
+            const cart = new Cart();
+            cart.removeItem(productId);
+            displayCart();
+        }
+
+        function updateTotals() {
+            const cart = new Cart();
+            const subtotal = cart.getTotal();
+            const tax = subtotal * 0.1;
+            const total = subtotal + tax;
+
+            document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+            document.getElementById('tax').textContent = formatCurrency(tax);
+            document.getElementById('total').textContent = formatCurrency(total);
+        }
+
+        async function checkout() {
+            const token = getToken();
+            if (!token) {
+                showAlert('Please login to checkout', 'info');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const cart = new Cart();
+            if (cart.items.length === 0) {
+                showAlert('Your cart is empty', 'error');
+                return;
+            }
+
+            try {
+                const result = await apiCall('POST', '/orders', {
+                    items: cart.items.map(item => ({
+                        product_id: item.product_id,
+                        product_name: item.product_name,
+                        quantity: item.quantity,
+                        unit_price: item.price,
+                        subtotal: item.price * item.quantity
+                    })),
+                    shipping_address: prompt('Enter shipping address:'),
+                    payment_method: 'CREDIT_CARD'
+                });
+
+                if (result.status === 'success') {
+                    showAlert('Order placed successfully!', 'success');
+                    cart.clear();
+                    displayCart();
+                    setTimeout(() => {
+                        window.location.href = `/order.html?id=${result.data.order_id}`;
+                    }, 2000);
+                } else {
+                    showAlert(result.error || 'Failed to place order', 'error');
+                }
+            } catch (error) {
+                showAlert(error.message, 'error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateNav();
+            displayCart();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+services:
+  # ===============================
+  # USER SERVICE - PostgreSQL
+  # ===============================
+  user-db-primary:
+    image: postgres:15-alpine
+    container_name: user-db-primary
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: user_service_db
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--auth-host=trust --auth-local=trust"
+    ports:
+      - "15432:5432"
+    volumes:
+      - ./db/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./db/postgres/replication-auth.sh:/docker-entrypoint-initdb.d/00-replication-auth.sh
+      - ./db/postgres/user-db-scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./db/postgres/user-db-scripts/procedures.sql:/docker-entrypoint-initdb.d/02-procedures.sql
+      - ./volumes/user-db-primary:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "hot_standby=on"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.conf"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-db-replica:
+    image: postgres:15-alpine
+    container_name: user-db-replica
+    depends_on:
+      user-db-primary:
+        condition: service_healthy
+    environment:
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "15433:5432"
+    volumes:
+      - ./volumes/user-db-replica:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    command: |
+      bash -c "rm -rf /var/lib/postgresql/data/* && chown -R postgres:postgres /var/lib/postgresql/data && until gosu postgres pg_basebackup -h user-db-primary -D /var/lib/postgresql/data -U postgres -v -w -P -X stream -R;
+      do echo 'Waiting for primary to connect...'; sleep 1; done && chown -R postgres:postgres /var/lib/postgresql/data && chmod 700 /var/lib/postgresql/data && exec gosu postgres postgres"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===============================
+  # ORDER SERVICE - PostgreSQL
+  # ===============================
+  order-db-primary:
+    image: postgres:15-alpine
+    container_name: order-db-primary
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: order_service_db
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--auth-host=trust --auth-local=trust"
+    ports:
+      - "15434:5432"
+    volumes:
+      - ./db/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./db/postgres/replication-auth.sh:/docker-entrypoint-initdb.d/00-replication-auth.sh
+      - ./db/postgres/order-db-scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./db/postgres/order-db-scripts/procedures.sql:/docker-entrypoint-initdb.d/02-procedures.sql
+      - ./volumes/order-db-primary:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "hot_standby=on"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.conf"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  order-db-replica:
+    image: postgres:15-alpine
+    container_name: order-db-replica
+    depends_on:
+      order-db-primary:
+        condition: service_healthy
+    environment:
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "15435:5432"
+    volumes:
+      - ./volumes/order-db-replica:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    command: |
+      bash -c "rm -rf /var/lib/postgresql/data/* && chown -R postgres:postgres /var/lib/postgresql/data && until gosu postgres pg_basebackup -h order-db-primary -D /var/lib/postgresql/data -U postgres -v -w -P -X stream -R;
+      do echo 'Waiting for primary to connect...'; sleep 1; done && chown -R postgres:postgres /var/lib/postgresql/data && chmod 700 /var/lib/postgresql/data && exec gosu postgres postgres"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===============================
+  # INVENTORY SERVICE - PostgreSQL
+  # ===============================
+  inventory-db-primary:
+    image: postgres:15-alpine
+    container_name: inventory-db-primary
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: inventory_service_db
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--auth-host=trust --auth-local=trust"
+    ports:
+      - "15436:5432"
+    volumes:
+      - ./db/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./db/postgres/replication-auth.sh:/docker-entrypoint-initdb.d/00-replication-auth.sh
+      - ./db/postgres/inventory-db-scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./db/postgres/inventory-db-scripts/procedures.sql:/docker-entrypoint-initdb.d/02-procedures.sql
+      - ./volumes/inventory-db-primary:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "hot_standby=on"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.conf"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inventory-db-replica:
+    image: postgres:15-alpine
+    container_name: inventory-db-replica
+    depends_on:
+      inventory-db-primary:
+        condition: service_healthy
+    environment:
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "15437:5432"
+    volumes:
+      - ./volumes/inventory-db-replica:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    command: |
+      bash -c "rm -rf /var/lib/postgresql/data/* && chown -R postgres:postgres /var/lib/postgresql/data && until gosu postgres pg_basebackup -h inventory-db-primary -D /var/lib/postgresql/data -U postgres -v -w -P -X stream -R;
+      do echo 'Waiting for primary to connect...'; sleep 1; done && chown -R postgres:postgres /var/lib/postgresql/data && chmod 700 /var/lib/postgresql/data && exec gosu postgres postgres"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===============================
+  # PRODUCT CATALOG - MongoDB
+  # ===============================
+  mongodb-primary:
+    image: mongo:7.0
+    container_name: mongodb-primary
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin}
+      MONGO_INITDB_DATABASE: product_catalog_db
+    ports:
+      - "37017:27017"
+    volumes:
+      - ./db/mongo/init.js:/docker-entrypoint-initdb.d/init.js
+      - mongodb-primary:/data/db
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb-secondary:
+    image: mongo:7.0
+    container_name: mongodb-secondary
+    depends_on:
+      mongodb-primary:
+        condition: service_healthy
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin}
+    ports:
+      - "37018:27017"
+    volumes:
+      - mongodb-secondary:/data/db
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  ecommerce-network:
+    driver: bridge
+
+volumes:
+  user-db-primary:
+  user-db-replica:
+  order-db-primary:
+  order-db-replica:
+  inventory-db-primary:
+  inventory-db-replica:
+  mongodb-primary:
+  mongodb-secondary:
