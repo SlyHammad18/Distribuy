@@ -1034,18 +1034,21 @@ def reconnect_mongo_db(target_role):
 
 def get_mongo_db_for_role(target_role):
     """Create a short-lived Mongo database handle for a specific role."""
-    if target_role == 'secondary':
-        host, port = Config.MONGO_SECONDARY_HOST, Config.MONGO_SECONDARY_PORT
-    else:
-        host, port = Config.MONGO_HOST, Config.MONGO_PORT
+    try:
+        if target_role == 'secondary':
+            host, port = Config.MONGO_SECONDARY_HOST, Config.MONGO_SECONDARY_PORT
+        else:
+            host, port = Config.MONGO_HOST, Config.MONGO_PORT
 
-    return DatabaseConnection.get_mongo_connection(
-        host,
-        port,
-        Config.MONGO_DB,
-        Config.MONGO_USER,
-        Config.MONGO_PASSWORD,
-    )
+        return DatabaseConnection.get_mongo_connection(
+            host,
+            port,
+            Config.MONGO_DB,
+            Config.MONGO_USER,
+            Config.MONGO_PASSWORD,
+        )
+    except Exception:
+        return None
 
 
 def sync_mongo_standalone_data(collection_names=None):
@@ -1115,10 +1118,13 @@ def read_products_with_mongo_fallback(query, page, limit):
     # If active endpoint is empty or failed, check alternate endpoint.
     try:
         alt_db = get_mongo_db_for_role(alternate_role)
-        alt_products = list(alt_db.products.find(query).skip(skip).limit(limit))
-        alt_total = alt_db.products.count_documents(query)
-        if alt_total > 0:
-            return alt_products, alt_total, alternate_role
+        if alt_db is not None:
+            alt_products = list(alt_db.products.find(query).skip(skip).limit(limit))
+            alt_total = alt_db.products.count_documents(query)
+            if alt_total > 0:
+                return alt_products, alt_total, alternate_role
+        else:
+            errors.append(f"{alternate_role}: Could not establish connection")
     except Exception as e:
         errors.append(f"{alternate_role}: {str(e)}")
 
@@ -1726,7 +1732,10 @@ def get_product_details(product_id):
                 active_role = active_db_endpoints.get('mongodb', 'primary')
                 alternate_role = 'secondary' if active_role == 'primary' else 'primary'
                 alt_db = get_mongo_db_for_role(alternate_role)
-                product = alt_db.products.find_one({'_id': product_id})
+                if alt_db is not None:
+                    product = alt_db.products.find_one({'_id': product_id})
+                else:
+                    errors.append(f"alternate: Could not establish connection")
             except Exception as e:
                 errors.append(f"alternate: {str(e)}")
 
